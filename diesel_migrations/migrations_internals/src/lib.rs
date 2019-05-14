@@ -109,7 +109,6 @@ use self::schema::__diesel_schema_migrations::dsl::*;
 use diesel::expression_methods::*;
 use diesel::{Connection, QueryDsl, QueryResult, RunQueryDsl};
 
-use std::convert::AsRef;
 use std::env;
 use std::path::{Path, PathBuf};
 
@@ -154,9 +153,9 @@ where
 pub fn mark_migrations_in_directory<Conn>(
     conn: &Conn,
     migrations_dir: &Path,
-) -> Result<Vec<(Box<Migration>, bool)>, RunMigrationsError>
+) -> Result<Vec<(Box<Migration<TomlMetadata>>, bool)>, RunMigrationsError>
 where
-    Conn: MigrationConnection,
+    Conn: MigrationConnection
 {
     let migrations = migrations_in_directory(migrations_dir)?;
     setup_database(conn)?;
@@ -249,7 +248,8 @@ where
 fn migration_with_version(
     migrations_dir: &Path,
     ver: &str,
-) -> Result<Box<Migration>, MigrationError> {
+) -> Result<Box<Migration<TomlMetadata>>, MigrationError>
+{
     let all_migrations = migrations_in_directory(migrations_dir)?;
     let migration = all_migrations.into_iter().find(|m| m.version() == ver);
     match migration {
@@ -289,7 +289,8 @@ pub fn migration_paths_in_directory(path: &Path) -> Result<Vec<DirEntry>, Migrat
         .collect()
 }
 
-fn migrations_in_directory(path: &Path) -> Result<Vec<Box<Migration>>, MigrationError> {
+fn migrations_in_directory(path: &Path) -> Result<Vec<Box<Migration<TomlMetadata>>>, MigrationError>
+{
     migration_paths_in_directory(path)?
         .iter()
         .map(|e| migration_from(e.path()))
@@ -298,7 +299,7 @@ fn migrations_in_directory(path: &Path) -> Result<Vec<Box<Migration>>, Migration
 
 /// Run all pending migrations in the given list. Apps should likely be calling
 /// `run_pending_migrations` or `run_pending_migrations_in_directory` instead.
-pub fn run_migrations<Conn, List>(
+pub fn run_migrations<Conn, List, M>(
     conn: &Conn,
     migrations: List,
     output: &mut Write,
@@ -306,7 +307,8 @@ pub fn run_migrations<Conn, List>(
 where
     Conn: MigrationConnection,
     List: IntoIterator,
-    List::Item: Migration,
+    List::Item: Migration<M>,
+    M: Metadata + Sized
 {
     setup_database(conn)?;
     let already_run = conn.previously_run_migration_versions()?;
@@ -322,13 +324,14 @@ where
     Ok(())
 }
 
-fn run_migration<Conn>(
+fn run_migration<Conn, M>(
     conn: &Conn,
-    migration: &Migration,
+    migration: &Migration<M>,
     output: &mut Write,
 ) -> Result<(), RunMigrationsError>
 where
     Conn: MigrationConnection,
+    M : Metadata + Sized
 {
     let mut run_migration = || {
         if migration.version() != "00000000000000" {
@@ -348,17 +351,8 @@ where
 
     let run_in_transaction = migration
         .metadata()
-        .and_then(|m| m.get("run_in_transaction"));
-    let run_in_transaction = match run_in_transaction.as_ref().map(AsRef::as_ref) {
-        Some("true") => true,
-        Some("false") | None => false,
-        Some(_) => {
-            return Err(MigrationError::InvalidMetadata(
-                "run_in_transaction must be a boolean".into(),
-            )
-            .into())
-        }
-    };
+        .and_then(|m| m.get("run_in_transaction"))
+        .unwrap_or(Ok(false))?;
 
     if run_in_transaction {
         conn.transaction(run_migration)
@@ -367,11 +361,15 @@ where
     }
 }
 
-fn revert_migration<Conn: Connection>(
+fn revert_migration<Conn, M>(
     conn: &Conn,
-    migration: &Migration,
+    migration: &Migration<M>,
     output: &mut Write,
-) -> Result<(), RunMigrationsError> {
+) -> Result<(), RunMigrationsError>
+where
+    Conn : Connection,
+    M : Metadata + Sized
+{
     conn.transaction(|| {
         writeln!(output, "Rolling back migration {}", name(&migration))?;
         if let Err(e) = migration.revert(conn) {

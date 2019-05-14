@@ -1,7 +1,9 @@
+extern crate serde;
+use self::serde::de::DeserializeOwned;
+
 use diesel::connection::SimpleConnection;
 use diesel::migration::*;
 
-use std::borrow::Cow;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -10,15 +12,24 @@ use toml;
 
 #[allow(missing_debug_implementations)]
 #[derive(Clone, Copy)]
-pub struct MigrationName<'a> {
-    pub migration: &'a Migration,
+pub struct MigrationName<'a, M>
+where
+    M : Metadata + Sized
+{
+    pub migration: &'a Migration<M>,
 }
 
-pub fn name(migration: &Migration) -> MigrationName {
+pub fn name<M>(migration: &Migration<M>) -> MigrationName<M>
+where
+    M : Metadata + Sized
+{
     MigrationName { migration }
 }
 
-impl<'a> fmt::Display for MigrationName<'a> {
+impl<'a, M> fmt::Display for MigrationName<'a, M>
+where
+    M : Metadata + Sized
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let file_name = self
             .migration
@@ -35,19 +46,28 @@ impl<'a> fmt::Display for MigrationName<'a> {
 
 #[allow(missing_debug_implementations)]
 #[derive(Clone, Copy)]
-pub struct MigrationFileName<'a> {
-    pub migration: &'a Migration,
+pub struct MigrationFileName<'a, M>
+where
+    M : Metadata + Sized
+{
+    pub migration: &'a Migration<M>,
     pub sql_file: &'a str,
 }
 
-pub fn file_name<'a>(migration: &'a Migration, sql_file: &'a str) -> MigrationFileName<'a> {
+pub fn file_name<'a, M>(migration: &'a Migration<M>, sql_file: &'a str) -> MigrationFileName<'a, M>
+where
+    M : Metadata + Sized
+{
     MigrationFileName {
         migration,
         sql_file,
     }
 }
 
-impl<'a> fmt::Display for MigrationFileName<'a> {
+impl<'a, M> fmt::Display for MigrationFileName<'a, M>
+where
+    M : Metadata + Sized
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let fpath = match self.migration.file_path() {
             None => return Err(fmt::Error),
@@ -58,7 +78,8 @@ impl<'a> fmt::Display for MigrationFileName<'a> {
     }
 }
 
-pub fn migration_from(path: PathBuf) -> Result<Box<Migration>, MigrationError> {
+pub fn migration_from(path: PathBuf) -> Result<Box<Migration<TomlMetadata>>, MigrationError>
+{
     #[cfg(feature = "barrel")]
     match ::barrel::integrations::diesel::migration_from(&path) {
         Some(migration) => return Ok(migration),
@@ -139,7 +160,8 @@ impl SqlFileMigration {
     }
 }
 
-impl Migration for SqlFileMigration {
+impl Migration<TomlMetadata> for SqlFileMigration
+{
     fn file_path(&self) -> Option<&Path> {
         Some(&self.directory)
     }
@@ -156,8 +178,8 @@ impl Migration for SqlFileMigration {
         run_sql_from_file(conn, &self.directory.join("down.sql"))
     }
 
-    fn metadata(&self) -> Option<&Metadata> {
-        self.metadata.as_ref().map(|m| m as _)
+    fn metadata(&self) -> Option<&TomlMetadata> {
+        self.metadata.as_ref()
     }
 }
 
@@ -174,14 +196,15 @@ fn run_sql_from_file(conn: &SimpleConnection, path: &Path) -> Result<(), RunMigr
     Ok(())
 }
 
-struct TomlMetadata(toml::Value);
+pub struct TomlMetadata(toml::Value);
 
 impl Metadata for TomlMetadata {
-    fn get(&self, key: &str) -> Option<Cow<str>> {
+    fn get<T>(&self, key: &str) -> Option<Result<T, MigrationError>>
+    where
+        T : DeserializeOwned
+    {
         self.0.get(key).map(|v| {
-            v.as_str()
-                .map(Into::into)
-                .unwrap_or_else(|| v.to_string().into())
+            v.try_into::<T>().map_err(|e| MigrationError::InvalidMetadata(Box::new(e)))
         })
     }
 }

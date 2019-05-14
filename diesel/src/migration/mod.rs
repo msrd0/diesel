@@ -1,14 +1,19 @@
 //! Representation of migrations
 
+extern crate serde;
+use self::serde::de::DeserializeOwned;
+
 mod errors;
 pub use self::errors::{MigrationError, RunMigrationsError};
 
 use connection::SimpleConnection;
-use std::borrow::Cow;
 use std::path::Path;
 
 /// Represents a migration that interacts with diesel
-pub trait Migration {
+pub trait Migration<M>
+where
+    M : Metadata + Sized
+{
     /// Get the migration version
     fn version(&self) -> &str;
 
@@ -24,12 +29,15 @@ pub trait Migration {
     }
 
     /// Get the metadata associated with this migration, if any
-    fn metadata(&self) -> Option<&Metadata> {
+    fn metadata(&self) -> Option<&M> {
         None
     }
 }
 
-impl Migration for Box<Migration> {
+impl<M> Migration<M> for Box<Migration<M>>
+where
+    M : Metadata + Sized
+{
     fn version(&self) -> &str {
         (&**self).version()
     }
@@ -46,12 +54,15 @@ impl Migration for Box<Migration> {
         (&**self).file_path()
     }
 
-    fn metadata(&self) -> Option<&Metadata> {
+    fn metadata(&self) -> Option<&M> {
         (&**self).metadata()
     }
 }
 
-impl<'a> Migration for &'a Migration {
+impl<'a, M> Migration<M> for &'a Migration<M>
+where
+    M : Metadata + Sized
+{
     fn version(&self) -> &str {
         (&**self).version()
     }
@@ -68,7 +79,7 @@ impl<'a> Migration for &'a Migration {
         (&**self).file_path()
     }
 
-    fn metadata(&self) -> Option<&Metadata> {
+    fn metadata(&self) -> Option<&M> {
         (&**self).metadata()
     }
 }
@@ -85,5 +96,8 @@ impl<'a> Migration for &'a Migration {
 /// this to `false`.
 pub trait Metadata {
     /// Get the metadata at the given key, if present
-    fn get(&self, key: &str) -> Option<Cow<str>>;
+    fn get<T>(&self, key: &str) -> Option<Result<T, MigrationError>>
+    where
+        Self : Sized,
+        T : DeserializeOwned;
 }
