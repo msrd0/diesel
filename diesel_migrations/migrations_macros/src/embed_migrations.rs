@@ -37,7 +37,7 @@ pub fn derive_embed_migrations(input: &syn::DeriveInput) -> proc_macro2::TokenSt
             up_sql: &'static str,
         }
 
-        impl Migration for EmbeddedMigration {
+        impl Migration<diesel::migration::DummyMetadata> for EmbeddedMigration {
             fn version(&self) -> &str {
                 self.version
             }
@@ -73,7 +73,7 @@ pub fn derive_embed_migrations(input: &syn::DeriveInput) -> proc_macro2::TokenSt
         use self::diesel::connection::SimpleConnection;
         use std::io;
 
-        const ALL_MIGRATIONS: &[&Migration] = &[#(#migrations_expr),*];
+        const ALL_MIGRATIONS: &[&Migration<diesel::migration::DummyMetadata>] = &[#(#migrations_expr),*];
 
         #embedded_migration_def
 

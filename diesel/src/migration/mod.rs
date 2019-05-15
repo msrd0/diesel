@@ -101,3 +101,18 @@ pub trait Metadata {
         Self : Sized,
         T : DeserializeOwned;
 }
+
+/// This struct represents non-existent metadata for a migration. It can be used for Migrations
+/// that wish to never return anything other than None in their `metadata()` method.
+#[derive(Copy, Clone, Debug)]
+pub struct DummyMetadata {
+}
+
+impl Metadata for DummyMetadata {
+    fn get<T>(&self, _key: &str) -> Option<Result<T, MigrationError>>
+    where
+        T : DeserializeOwned
+    {
+        None
+    }
+}
