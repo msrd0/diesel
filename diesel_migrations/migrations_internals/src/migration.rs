@@ -196,6 +196,7 @@ fn run_sql_from_file(conn: &SimpleConnection, path: &Path) -> Result<(), RunMigr
     Ok(())
 }
 
+#[derive(Debug)]
 pub struct TomlMetadata(toml::Value);
 
 impl Metadata for TomlMetadata {
@@ -204,7 +205,7 @@ impl Metadata for TomlMetadata {
         T : DeserializeOwned
     {
         self.0.get(key).map(|v| {
-            v.try_into::<T>().map_err(|e| MigrationError::InvalidMetadata(Box::new(e)))
+            v.to_owned().try_into::<T>().map_err(|e| MigrationError::InvalidMetadata(Box::new(e)))
         })
     }
 }
