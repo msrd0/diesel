@@ -113,6 +113,8 @@ pub use migrations_internals::setup_database;
 #[doc(inline)]
 pub use migrations_internals::version_from_path;
 #[doc(inline)]
+pub use migrations_internals::Metadata;
+#[doc(inline)]
 pub use migrations_internals::Migration;
 #[doc(inline)]
 pub use migrations_internals::MigrationConnection;
