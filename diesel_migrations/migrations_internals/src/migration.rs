@@ -125,7 +125,10 @@ impl SqlFileMigration {
             let mut buf = Vec::new();
             let mut file = File::open(metadata_path)?;
             file.read_to_end(&mut buf)?;
-            Some(TomlMetadata::from_slice(&buf).map_err(|e| MigrationError::InvalidMetadata(e.into()))?)
+            Some(
+                TomlMetadata::from_slice(&buf)
+                    .map_err(|e| MigrationError::InvalidMetadata(e.into()))?,
+            )
         } else {
             None
         };
@@ -176,10 +179,8 @@ fn run_sql_from_file(conn: &dyn SimpleConnection, path: &Path) -> Result<(), Run
 #[allow(missing_debug_implementations)]
 pub struct TomlMetadata(pub TomlValue);
 
-impl TomlMetadata
-{
-    pub fn from_slice<'de>(bytes : &'de [u8]) -> Result<Self, toml::de::Error>
-    {
+impl TomlMetadata {
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, toml::de::Error> {
         Ok(TomlMetadata(toml::from_slice(bytes)?))
     }
 }

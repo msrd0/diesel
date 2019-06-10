@@ -128,7 +128,6 @@ pub use migrations_internals::{TomlDatetime, TomlMetadata, TomlTable, TomlValue}
 pub use migrations_macros::*;
 #[doc(hidden)]
 
-
 pub mod connection {
     #[doc(inline)]
     pub use migrations_internals::connection::MigrationConnection;
