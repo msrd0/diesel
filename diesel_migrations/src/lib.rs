@@ -122,8 +122,12 @@ pub use migrations_internals::MigrationError;
 pub use migrations_internals::MigrationName;
 #[doc(inline)]
 pub use migrations_internals::RunMigrationsError;
+#[doc(inline)]
+pub use migrations_internals::{TomlDatetime, TomlMetadata, TomlTable, TomlValue};
 #[doc(hidden)]
 pub use migrations_macros::*;
+#[doc(hidden)]
+
 
 pub mod connection {
     #[doc(inline)]
