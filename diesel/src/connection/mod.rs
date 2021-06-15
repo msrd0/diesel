@@ -160,9 +160,10 @@ pub trait Connection: SimpleConnection + Sized + Send {
     {
         let mut user_result = None;
         let _ = self.transaction::<(), _, _>(|| {
-            user_result = f().ok();
+            user_result = Some(f());
             Err(Error::RollbackTransaction)
         });
+		let user_result = user_result.unwrap();
         user_result.expect("Transaction did not succeed")
     }
 
