@@ -1,7 +1,10 @@
 // All items in this module are deprecated. They are rendered in docs.
 #![allow(missing_docs)]
 #![cfg(feature = "with-deprecated")]
-#![deprecated(since = "1.1.0", note = "Use `sql_types`, `serialize`, or `deserialize` instead")]
+#![deprecated(
+    since = "1.1.0",
+    note = "Use `sql_types`, `serialize`, or `deserialize` instead"
+)]
 
 #[deprecated(since = "1.1.0", note = "Use `sql_types` instead")]
 pub use sql_types::*;

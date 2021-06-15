@@ -163,7 +163,7 @@ pub trait Connection: SimpleConnection + Sized + Send {
             user_result = Some(f());
             Err(Error::RollbackTransaction)
         });
-		let user_result = user_result.unwrap();
+        let user_result = user_result.unwrap();
         user_result.expect("Transaction did not succeed")
     }
 
